@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Charlie Clicker: Infinite Odyssey</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#0f0f0f;color:#fff;text-align:center;padding:15px;}
+h1{color:#ffcc00;}
+#charlie{width:180px;max-width:70%;cursor:pointer;transition:transform 0.1s;}
+.bounce{transform:scale(1.2) rotate(4deg);}
+.crit{color:#ff4444;font-size:24px;animation:pop 0.6s ease-out;}
+@keyframes pop{from{transform:scale(0.5);opacity:1;}to{transform:scale(1.5);opacity:0;}}
+.panel{background:#1b1b1b;margin:10px auto;padding:10px;border-radius:8px;max-width:480px;}
+button{padding:10px;margin:5px;font-size:15px;background:#222;color:#fff;border:1px solid #555;border-radius:5px;}
+button:hover{background:#333;}
+.small{font-size:13px;opacity:0.8;}
+</style>
+</head>
+<body>
+
+<h1>🐶 Charlie Clicker: Infinite Odyssey</h1>
+<p>Click, build, prestige, and master the Charlie Empire!</p>
+
+<img id="charlie" src="charlie.jpeg">
+<div id="critText"></div>
+
+<div class="panel">
+<h3>Stats</h3>
+<p>Coins: <span id="coins">0</span></p>
+<p>Per Click: <span id="perClick">1</span></p>
+<p>Per Second: <span id="perSecond">0</span></p>
+<p>Golden Charlies: <span id="golden">0</span></p>
+<p>Legendary Charlies: <span id="legendary">0</span></p>
+<p>Prestige Level: <span id="prestigeLevel">0</span></p>
+<p>Prestige Multiplier: <span id="prestige">1x</span></p>
+<p>Empire Level: <span id="empire">0</span></p>
+</div>
+
+<div class="panel">
+<h3>Clicker Upgrades</h3>
+<button onclick="buyUpgrade('clicker1')">+1 per Click – <span id="clicker1Cost">10</span></button><br>
+<button onclick="buyUpgrade('critChance')">Crit Chance +5% – <span id="critChanceCost">500</span></button><br>
+<button onclick="buyUpgrade('critMulti')">Crit x2 – <span id="critMultiCost">2000</span></button><br>
+<button onclick="buyUpgrade('clickSynergy')">Click Synergy – <span id="clickSynergyCost">10000</span></button>
+</div>
+
+<div class="panel">
+<h3>Idle / Automation Upgrades</h3>
+<button onclick="buyUpgrade('auto1')">+1 Auto Click – <span id="auto1Cost">50</span></button><br>
+<button onclick="buyUpgrade('autoMulti')">Auto x2 – <span id="autoMultiCost">3000</span></button><br>
+<button onclick="buyUpgrade('autoSynergy')">Auto Synergy – <span id="autoSynergyCost">15000</span></button><br>
+<button onclick="buyUpgrade('chainAuto')">Chain Auto – <span id="chainAutoCost">50000</span></button>
+</div>
+
+<div class="panel">
+<h3>Empire / Meta Upgrades</h3>
+<button onclick="buyUpgrade('empire1')">Empire Level +1 – <span id="empire1Cost">5000</span></button><br>
+<button onclick="buyUpgrade('goldenUnlock')">Golden Charlie – <span id="goldenUnlockCost">10000</span></button><br>
+<button onclick="buyUpgrade('legendaryUnlock')">Legendary Charlie – <span id="legendaryUnlockCost">50000</span></button><br>
+<button onclick="buyUpgrade('metaMulti')">Meta Multiplier x2 – <span id="metaMultiCost">100000</span></button>
+</div>
+
+<div class="panel">
+<h3>Prestige</h3>
+<button onclick="prestige()">Prestige Reset</button>
+<p class="small">Requires <span id="prestigeCost">10000</span> Coins</p>
+</div>
+
+<div class="panel">
+<h3>Mini-Games / Events</h3>
+<button onclick="startCharlieRush()">Charlie Rush</button>
+<button onclick="startGoldenFrenzy()">Golden Frenzy</button>
+</div>
+
+<div class="panel">
+<h3>Achievements</h3>
+<ul id="achievements"></ul>
+</div>
+
+<script>
+/* ---------- GAME STATE ---------- */
+let coins=0, perClick=1, perSecond=0, prestigeMult=1, empireLevel=0;
+let golden=0, legendary=0, prestigeLevel=0, clickCount=0;
+let clickChance=0.1, critMultiplier=10;
+let inRush=false, inFrenzy=false;
+
+/* ---------- UPGRADES ---------- */
+let upgradeData={
+  clicker1:{cost:10,buy(){perClick++; this.cost=Math.floor(this.cost*1.5)}},
+  critChance:{cost:500,buy(){clickChance+=0.05; this.cost=Math.floor(this.cost*2)}},
+  critMulti:{cost:2000,buy(){critMultiplier*=2; this.cost=Math.floor(this.cost*3)}},
+  clickSynergy:{cost:10000,buy(){perSecond+=perClick*0.5; this.cost=Math.floor(this.cost*3)}},
+  auto1:{cost:50,buy(){perSecond++; this.cost=Math.floor(this.cost*1.7)}},
+  autoMulti:{cost:3000,buy(){perSecond*=2; this.cost=Math.floor(this.cost*2.5)}},
+  autoSynergy:{cost:15000,buy(){perClick+=perSecond*0.2; this.cost=Math.floor(this.cost*3)}},
+  chainAuto:{cost:50000,buy(){perSecond+=perSecond*0.5; this.cost=Math.floor(this.cost*4)}},
+  empire1:{cost:5000,buy(){empireLevel++; this.cost=Math.floor(this.cost*2.5)}},
+  goldenUnlock:{cost:10000,buy(){golden++; this.cost=Math.floor(this.cost*5)}},
+  legendaryUnlock:{cost:50000,buy(){legendary++; this.cost=Math.floor(this.cost*10)}},
+  metaMulti:{cost:100000,buy(){perClick*=2; perSecond*=2; this.cost=Math.floor(this.cost*5)}}
+};
+
+/* ---------- DOM ---------- */
+const coinsEl=document.getElementById("coins");
+const perClickEl=document.getElementById("perClick");
+const perSecondEl=document.getElementById("perSecond");
+const prestigeEl=document.getElementById("prestige");
+const empireEl=document.getElementById("empire");
+const goldenEl=document.getElementById("golden");
+const legendaryEl=document.getElementById("legendary");
+const prestigeLevelEl=document.getElementById("prestigeLevel");
+const achEl=document.getElementById("achievements");
+const charlie=document.getElementById("charlie");
+const critText=document.getElementById("critText");
+
+/* ---------- SAVE / LOAD ---------- */
+function saveGame(){
+  localStorage.setItem("charlieSave",JSON.stringify({
+    coins,perClick,perSecond,prestigeMult,empireLevel,
+    golden,legendary,prestigeLevel,clickCount,
+    clickChance,critMultiplier,
+    upgradeCosts:Object.fromEntries(Object.entries(upgradeData).map(([k,v])=>[k,v.cost])),
+    lastSave:Date.now()
+  }));
+}
+
+function loadGame(){
+  const s=JSON.parse(localStorage.getItem("charlieSave"));
+  if(!s) return;
+
+  coins=Number(s.coins)||0;
+  perClick=Number(s.perClick)||1;
+  perSecond=Number(s.perSecond)||0;
+  prestigeMult=Number(s.prestigeMult)||1;
+  empireLevel=Number(s.empireLevel)||0;
+
+  golden=Number(s.golden)||0;
+  legendary=Number(s.legendary)||0;
+  prestigeLevel=Number(s.prestigeLevel)||0;
+  clickCount=Number(s.clickCount)||0;
+
+  clickChance=Number(s.clickChance)||0.1;
+  critMultiplier=Number(s.critMultiplier)||10;
+
+  if(s.upgradeCosts){
+    for(const id in s.upgradeCosts){
+      if(upgradeData[id]){
+        upgradeData[id].cost=Number(s.upgradeCosts[id])||upgradeData[id].cost;
+      }
+    }
+  }
+
+  if(typeof s.lastSave==="number"){
+    const offline=Math.floor((Date.now()-s.lastSave)/1000);
+    if(offline>0){
+      coins+=offline*perSecond*prestigeMult*(1+empireLevel);
+    }
+  }
+}
+
+/* ---------- UI ---------- */
+function updateUI(){
+  coinsEl.textContent=Math.floor(coins);
+  perClickEl.textContent=(perClick*prestigeMult*(1+empireLevel)).toFixed(1);
+  perSecondEl.textContent=(perSecond*prestigeMult*(1+empireLevel)).toFixed(1);
+  prestigeEl.textContent=prestigeMult.toFixed(1)+"x";
+  empireEl.textContent=empireLevel;
+  goldenEl.textContent=golden;
+  legendaryEl.textContent=legendary;
+  prestigeLevelEl.textContent=prestigeLevel;
+
+  for(const id in upgradeData){
+    const el=document.getElementById(id+"Cost");
+    if(el) el.textContent=Math.floor(upgradeData[id].cost);
+  }
+
+  document.getElementById("prestigeCost").textContent=
+    Math.floor(10000*Math.pow(1.5,prestigeLevel));
+
+  updateAchievements();
+}
+
+/* ---------- CLICK ---------- */
+charlie.onclick=()=>{
+  let gain=perClick*prestigeMult*(1+empireLevel);
+  if(Math.random()<clickChance){
+    gain*=critMultiplier;
+    critText.innerHTML="<div class='crit'>CRIT!</div>";
+    setTimeout(()=>critText.innerHTML="",500);
+  }
+  coins+=gain;
+  clickCount++;
+  charlie.classList.add("bounce");
+  setTimeout(()=>charlie.classList.remove("bounce"),100);
+  updateUI();
+};
+
+/* ---------- UPGRADES ---------- */
+function buyUpgrade(id){
+  const u=upgradeData[id];
+  if(coins>=u.cost){
+    coins-=u.cost;
+    u.buy();
+    updateUI();
+  }
+}
+
+/* ---------- PRESTIGE ---------- */
+function prestige(){
+  const cost=Math.floor(10000*Math.pow(1.5,prestigeLevel));
+  if(coins<cost) return;
+  prestigeLevel++;
+  prestigeMult=1+prestigeLevel*0.2;
+  golden+=Math.floor(coins/10000);
+  coins=0; perClick=1; perSecond=0; empireLevel=0;
+}
+
+/* ---------- ACHIEVEMENTS ---------- */
+function updateAchievements(){
+  const list=[
+    ["Click 100 times",clickCount>=100],
+    ["Reach 1,000 coins",coins>=1000],
+    ["Reach Empire Level 5",empireLevel>=5],
+    ["Prestige for the first time",prestigeLevel>=1],
+    ["Earn 1 Legendary Charlie",legendary>=1]
+  ];
+  achEl.innerHTML=list.map(a=>
+    `<li style="color:${a[1]?'#0f0':'#fff'}">${a[0]}</li>`
+  ).join("");
+}
+
+/* ---------- EVENTS ---------- */
+function startCharlieRush(){
+  if(inRush) return;
+  inRush=true;
+  const p=perClick;
+  perClick*=5;
+  setTimeout(()=>{perClick=p; inRush=false},10000);
+}
+function startGoldenFrenzy(){
+  if(inFrenzy) return;
+  inFrenzy=true;
+  const p=perClick;
+  perClick*=10;
+  setTimeout(()=>{perClick=p; inFrenzy=false},5000);
+}
+
+/* ---------- LOOP ---------- */
+setInterval(()=>{
+  coins+=perSecond*prestigeMult*(1+empireLevel);
+  updateUI();
+  saveGame();
+},1000);
+
+/* ---------- START ---------- */
+loadGame();
+updateUI();
+</script>
+</body>
+</html>
